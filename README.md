@@ -108,6 +108,89 @@ terraform destroy
 ```
 The variables file in the "terraform" directory helps improve the clarity and ease of understanding and running the Terraform main file.
 ## Analysis of Data
+>**Note:** The datasets used in the analysis process were [green_tripdata](https://github.com/DataTalksClub/nyc-tlc-data/releases/download/green/green_tripdata_2019-10.csv.gz) and [zones](https://github.com/DataTalksClub/nyc-tlc-data/releases/download/misc/taxi_zone_lookup.csv
+)
+### Question 3
+During the period of October 1st 2019 (inclusive) and November 1st 2019 (exclusive), how many trips, respectively, happened:
+- Up to 1 mile
+- In between 1 (exclusive) and 3 miles (inclusive),
+- In between 3 (exclusive) and 7 miles (inclusive),
+- In between 7 (exclusive) and 10 miles (inclusive),
+- Over 10 miles
+```sql
+SELECT
+	SUM(CASE WHEN trip_distance <= 1.0 THEN 1 ELSE 0 END) AS custom_1,
+	SUM(CASE WHEN trip_distance > 1.0 AND trip_distance <= 3.0 THEN 1 ELSE 0 END) AS custom_2,
+	SUM(CASE WHEN trip_distance > 3.0 AND trip_distance <= 7.0 THEN 1 ELSE 0 END) AS custom_3,
+	SUM(CASE WHEN trip_distance > 7.0 AND trip_distance <= 10.0 THEN 1 ELSE 0 END) AS custom_4,
+	SUM(CASE WHEN trip_distance > 10 THEN 1 ELSE 0 END) AS custom_5
+FROM
+	green_taxi_data
+WHERE
+	DATE(lpep_dropoff_datetime) >= '2019-10-01' AND DATE(lpep_dropoff_datetime) < '2019-11-01';
+```
+Results: 104802, 198924, 109603, 27678, 35189
+### Question 4
+Which was the pick up day with the longest trip distance? Use the pick up time for your calculations
+```sql
+SELECT
+	DATE(lpep_pickup_datetime),
+	trip_distance
+FROM
+	green_taxi_data
+ORDER BY
+	trip_distance DESC
+LIMIT 1
+```
+Result: 2019-10-31
+### Question 5
+Which were the top pickup locations with over 13,000 in total_amount (across all trips) for 2019-10-18?
+```sql
+SELECT
+	z."Zone",
+	SUM(t.total_amount) AS total_amount_sum
+FROM
+	green_taxi_data t
+JOIN 
+	zones AS z ON t."PULocationID" = z."LocationID"
+WHERE
+	DATE(t.lpep_pickup_datetime) = '2019-10-18'
+GROUP BY
+	z."Zone"
+HAVING
+    SUM(t.total_amount) > 13000
+ORDER BY
+	SUM(t.total_amount) DESC
+```
+Results
+| Zone   | total_amount_sum      |
+|-------------|---------------|
+| East Harlem North | 18686.67999999975   |
+| East Harlem South | 16797.25999999982   |
+| Morningside Heights | 13029.789999999899   |
+
+### Question 6
+For the passengers picked up in October 2019 in the zone named "East Harlem North" which was the drop off zone that had the largest tip?
+```sql
+SELECT
+	zd."Zone" AS drop_off_zone,
+	t.tip_amount
+FROM
+	green_taxi_data t
+JOIN 
+	zones AS zd ON t."DOLocationID" = zd."LocationID"
+JOIN
+	zones AS zp ON t."PULocationID" = zp."LocationID"
+WHERE
+	DATE(t.lpep_pickup_datetime) >= '2019-10-01' AND DATE(t.lpep_pickup_datetime) < '2019-11-01' AND zp."Zone" = 'East Harlem North'
+ORDER BY
+	t.tip_amount DESC
+LIMIT 1
+```
+Result
+| Drop Off Zone | Tip Amount |
+|---------------|------------|
+| JFK Airport   | 87.3       |
 
 ## Conclusion
-
+This project successfully ingests and analyzes NYC Taxi data using Docker, PostgreSQL, and Terraform. It identifies key travel trends, revenue hotspots, and tipping patterns, demonstrating the effective use of modern tools for scalable data workflows.
